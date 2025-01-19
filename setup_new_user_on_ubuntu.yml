@@ -77,3 +77,37 @@
         line: "ansible ALL=(ALL) NOPASSWD: ALL"
         state: present
         validate: '/usr/sbin/visudo -cf %s'
+
+    - name: install openssl
+      apt:
+        name: openssl
+        state: present
+        update_cache: yes
+
+    - name: Ensure PermitRootLogin is set to no
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin'
+        line: 'PermitRootLogin no'
+        state: present
+
+    - name: Ensure PasswordAuthentication is set to no
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+        state: present
+
+    - name: Ensure PubkeyAuthentication is set to yes
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PubkeyAuthentication'
+        line: 'PubkeyAuthentication yes'
+        state: present
+
+    - name: Uncomment AuthorizedKeysFile line
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?AuthorizedKeysFile'
+        line: 'AuthorizedKeysFile .ssh/authorized_keys .ssh/authorized_keys2'
+        state: present
