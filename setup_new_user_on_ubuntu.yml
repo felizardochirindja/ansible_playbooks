@@ -1,0 +1,79 @@
+- name: Setup a new user with administrative privileges
+  hosts: localhost
+  become_user: "root"  
+
+  vars:
+    username: ansible  # Change this to the desired username
+
+  tasks:
+    - name: Create the new user account
+      user:
+        name: "ansible"
+        state: present
+        shell: /bin/bash
+        comment: "Ansible User"
+
+    - name: Add the new user to the sudo group
+      user:
+        name: "ansible"
+        groups: sudo
+        append: yes
+
+    - name: Install UFW (if not installed)
+      apt:
+        name: ufw
+        state: present
+
+    - name: Allow SSH (port 22) through the firewall
+      ufw:
+        rule: allow
+        port: 22
+        proto: tcp
+
+    - name: Enable the UFW firewall
+      ufw:
+        state: enabled
+        policy: allow  # Default to allow all incoming connections unless otherwise restricted
+
+    - name: Ensure the firewall is active
+      ufw:
+        state: enabled
+      when: ansible_facts['distribution'] == 'Ubuntu'  # Only enable UFW on Ubuntu servers
+
+    - name: Ensure the directory exists for the SSH keys
+      file:
+        path: "/root/.ssh/ansible"
+        state: directory
+        owner: ansible
+        group: ansible
+        mode: '0700'
+
+    - name: Generate SSH key pair for the new user
+      openssh_keypair:
+        path: "/root/.ssh/ansible/id_ed25519"
+        owner: ansible
+        group: ansible
+        mode: '0600'
+        size: 4096
+        type: ed25519
+      notify:
+        - Set correct permissions for .ssh directory
+
+    - name: Ensure the new user can SSH into the server (must be executed as root)
+      authorized_key:
+        user: "ansible"
+        state: present
+        key: "{{ lookup('file', '/root/.ssh/ansible/id_ed25519.pub') }}"
+
+    - name: Ensure the new user can SSH into the server using the generated key
+      authorized_key:
+        user: "ansible"
+        state: present
+        key: "{{ lookup('file', '/root/.ssh/ansible/id_ed25519.pub') }}"
+      
+    - name: Ensure the new user has sudo privileges
+      lineinfile:
+        path: "/etc/sudoers"
+        line: "ansible ALL=(ALL) NOPASSWD: ALL"
+        state: present
+        validate: '/usr/sbin/visudo -cf %s'
